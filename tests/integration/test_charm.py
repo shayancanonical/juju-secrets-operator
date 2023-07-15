@@ -5,6 +5,7 @@
 import asyncio
 import logging
 from pathlib import Path
+from typing import Optional
 
 import pytest
 import yaml
@@ -14,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 METADATA = yaml.safe_load(Path("./metadata.yaml").read_text())
 APP_NAME = METADATA["name"]
+UNIT0_NAME = f"{APP_NAME}/0"
 
 
 @pytest.mark.abort_on_fail
@@ -24,7 +26,9 @@ async def test_build_and_deploy(ops_test: OpsTest):
     """
     # Build and deploy charm from local source folder
     charm = await ops_test.build_charm(".")
-    resources = {"httpbin-image": METADATA["resources"]["httpbin-image"]["upstream-source"]}
+    resources = {
+        "secrets-test-image": METADATA["resources"]["secrets-test-image"]["upstream-source"]
+    }
 
     # Deploy the charm and wait for active/idle status
     await asyncio.gather(
@@ -33,3 +37,60 @@ async def test_build_and_deploy(ops_test: OpsTest):
             apps=[APP_NAME], status="active", raise_on_blocked=True, timeout=1000
         ),
     )
+
+
+async def helper_execute_action(
+    ops_test: OpsTest, action: str, params: Optional[dict[str, str]] = None
+):
+    if params:
+        action = await ops_test.model.units.get(UNIT0_NAME).run_action(action, **params)
+    else:
+        action = await ops_test.model.units.get(UNIT0_NAME).run_action(action)
+    action = await action.wait()
+    return action.results
+
+
+async def test_delete_secret(ops_test: OpsTest):
+    """Testing if it's possible to remove a secret from a joined secret removing one-by-one.
+
+    NOTE: This should work
+    """
+    await helper_execute_action(ops_test, "set-secret", {"key": "key1", "value": "value1"})
+    await helper_execute_action(ops_test, "set-secret", {"key": "key2", "value": "value2"})
+    await helper_execute_action(ops_test, "set-secret", {"key": "key3", "value": "value3"})
+
+    secrets_data = await helper_execute_action(ops_test, "get-secrets")
+
+    assert secrets_data["secrets"] == {
+        "key1": "value1",
+        "key2": "value2",
+        "key3": "value3",
+    }
+
+    await helper_execute_action(ops_test, "set-secret", {"key": "key1"})
+    await helper_execute_action(ops_test, "set-secret", {"key": "key2"})
+    await helper_execute_action(ops_test, "set-secret", {"key": "key3"})
+
+    secrets_data = await helper_execute_action(ops_test, "get-secrets")
+
+    # NOTE: event.set_results() removes keys with empty values
+    assert "secrets" not in secrets_data
+
+
+async def test_delete_secrets_within_the_same_action_scope(ops_test: OpsTest):
+    """Testing if it's possible to remove a secret from a joined secret removing one-by-one.
+
+    NOTE: This should work
+    """
+    await helper_execute_action(ops_test, "set-secret", {"key": "key1", "value": "value1"})
+    await helper_execute_action(ops_test, "set-secret", {"key": "key2", "value": "value2"})
+    await helper_execute_action(ops_test, "set-secret", {"key": "key3", "value": "value3"})
+
+    await helper_execute_action(ops_test, "delete-secrets", {"keys": ["key1", "key2", "key3"]})
+
+    secrets_data = await helper_execute_action(ops_test, "get-secrets")
+
+    #
+    # ISSUE: This is NOT the intuitively expected behavior
+    #
+    assert secrets_data.get("secrets") == {"key2": "value2", "key3": "value3"}
