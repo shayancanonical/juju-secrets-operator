@@ -10,8 +10,6 @@ on:
   pull_request:
 
 jobs:
-  needs:
-    - build
   integration-test:
     - name: Run integration tests
       run: sg microk8s -c "tox run -e integration"
