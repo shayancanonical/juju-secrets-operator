@@ -1,0 +1,36 @@
+# Copyright 2023 Canonical Ltd.
+# See LICENSE file for licensing details.
+name: Tests
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+
+jobs:
+  integration-test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup operator environment
+        # TODO: Replace with custom image on self-hosted runner
+        uses: charmed-kubernetes/actions-operator@main
+        with:                  
+          provider: microk8s   
+          channel: "1.26-strict/stable"   
+          # This is needed until https://bugs.launchpad.net/juju/+bug/1977582 is fixed
+          bootstrap-options: "--agent-version 3.1.5"
+          bootstrap-constraints: "cores=2 mem=2G"
+          juju-channel: "3.1/stable"  
+      - name: Run integration tests
+        run: tox run -e integration
+      - name: Dump logs
+        uses: canonical/charm-logdump-action@main
+        if: failure()
+        with:
+          app: secrets-test
+          model: testing

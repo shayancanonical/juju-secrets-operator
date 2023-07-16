@@ -9,3 +9,9 @@ set-secret:
 
 get-secrets:
   description: Retrieve all the secrets stored in juju storage.
+
+delete-secrets:
+  description: Remove one or more of the secrets stored in juju storage.
+  keys:
+    type: list
+    description: The keys for secrets to be deleted
