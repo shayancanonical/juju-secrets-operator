@@ -18,9 +18,9 @@ Demonstration of the issue is visible in the correpsonding [Integration Test](te
 
 ```
 async def test_delete_secrets_within_the_same_action_scope(ops_test: OpsTest):
-    """Testing if it's possible to remove a secret from a joined secret removing one-by-one.
+    """Testing if it's possible to remove a secret from a joined secret removing one-by-one within the same even scope.
 
-    NOTE: This should work
+    NOTE: This should fail
     """
     await helper_execute_action(ops_test, "set-secret", {"key": "key1", "value": "value1"})
     await helper_execute_action(ops_test, "set-secret", {"key": "key2", "value": "value2"})
