@@ -25,7 +25,7 @@ jobs:
           # This is needed until https://bugs.launchpad.net/juju/+bug/1977582 is fixed
           bootstrap-options: "--agent-version 3.1.5"
           bootstrap-constraints: "cores=2 mem=2G"
-          juju-channel: "3.1/edge"  
+          juju-channel: "3.1/stable"  
       - name: Run integration tests
         run: tox run -e integration -- --model testing
       - name: Dump logs
