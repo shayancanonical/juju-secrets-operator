@@ -185,3 +185,47 @@ async def test_set_secrets_within_the_same_action_scope_works(ops_test: OpsTest)
             "key4": "value4",
             "key5": "### DELETED ###",
     }
+
+
+async def test_delete_lotta_secrets_within_the_same_action_scope(ops_test: OpsTest):
+    """Testing if it's possible to remove a secret from a joined secret removing one-by-one within the same event scope.
+
+    NOTE: This should fail
+    """
+    await helper_execute_action(ops_test, "forget-all-secrets")
+
+    for i in range(20):
+        await helper_execute_action(ops_test, "set-secret", {"key": f"key{i}", "value": f"value{i}"})
+
+    await helper_execute_action(ops_test, "delete-secrets", {"keys": [f"key{i}" for i in range(20)]})
+
+    secrets_data = await helper_execute_action(ops_test, "get-secrets")
+
+    #
+    # ISSUE!!!!! Empty dict wouldn't have made it to event results
+    #
+    assert secrets_data.get("secrets")
+
+    print(f"Actual results: {secrets_data.get('secrets')}")
+
+
+async def test_set_lotta_secrets_within_the_same_action_scope(ops_test: OpsTest):
+    """Testing if it's possible to remove a secret from a joined secret removing one-by-one within the same event scope.
+
+    NOTE: This should fail
+    """
+    await helper_execute_action(ops_test, "forget-all-secrets")
+
+    for i in range(20):
+        await helper_execute_action(ops_test, "set-secret", {"key": f"key{i}", "value": f"value{i}"})
+
+    await helper_execute_action(ops_test, "pseudo-delete-secrets", {"keys": [f"key{i}" for i in range(20)]})
+
+    secrets_data = await helper_execute_action(ops_test, "get-secrets")
+
+    #
+    # ISSUE!!!!! Empty dict wouldn't have made it to event results
+    #
+    assert secrets_data.get("secrets")
+
+    print(f"Actual results: {secrets_data.get('secrets')}")
