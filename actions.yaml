@@ -1,3 +1,6 @@
+forget-all-secrets:
+  description: Forgetting all secrets known by the charm
+
 set-secret:
   description: Test action to set a secret key/value pair.
   key:
@@ -12,6 +15,12 @@ get-secrets:
 
 delete-secrets:
   description: Remove one or more of the secrets stored in juju storage.
+  keys:
+    type: list
+    description: The keys for secrets to be deleted
+
+pseudo-delete-secrets:
+  description: Replace secret value with dummy placeholder as "deleted"
   keys:
     type: list
     description: The keys for secrets to be deleted
