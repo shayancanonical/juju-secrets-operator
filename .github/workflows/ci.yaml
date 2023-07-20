@@ -27,7 +27,7 @@ jobs:
           bootstrap-constraints: "cores=2 mem=2G"
           juju-channel: "3.1/edge"  
       - name: Run integration tests
-        run: tox run -e integration
+        run: tox run -e integration -- --model testing
       - name: Dump logs
         uses: canonical/charm-logdump-action@main
         if: failure()
