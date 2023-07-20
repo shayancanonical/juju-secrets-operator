@@ -13,6 +13,7 @@ https://discourse.charmhub.io/t/4208
 """
 
 import logging
+import time
 
 import ops
 from ops import ActiveStatus, SecretNotFoundError
@@ -105,11 +106,13 @@ class SecretsTestCharm(ops.CharmBase):
             content.update({key: value})
             logger.info(f"Setting secret {secret.id} to {content}")
             secret.set_content(content)
+            time.sleep(10)
         else:
             content = {
                 key: value,
             }
             secret = self.app.add_secret(content)
+            time.sleep(10)
             self.app_peer_data["secret-id"] = secret.id
             logger.info(f"Added secret {secret.id} to {content}")
 
