@@ -31,11 +31,16 @@ class SecretsTestCharm(ops.CharmBase):
         super().__init__(*args)
 
         self.framework.observe(self.on.set_secret_action, self._on_set_secret_action)
+        self.framework.observe(self.on.set_secrets_action, self._on_set_secrets_action)
         self.framework.observe(self.on.get_secrets_action, self._on_get_secrets_action)
 
     def _on_set_secret_action(self, event: ActionEvent):
-        key, value = event.params.get("key"), event.params.get("value")
-        self.set_secret(key, value)
+        k, v = event.params.get("key"), event.params.get("value")
+        self.set_secret(k, v)
+
+    def _on_set_secrets_action(self, event: ActionEvent):
+        for i in range(100):
+            self.set_secret(f"key-{i}", str(i))
 
     def _on_get_secrets_action(self, event: ActionEvent):
         """Return the secrets stored in juju secrets backend."""
@@ -70,16 +75,22 @@ class SecretsTestCharm(ops.CharmBase):
         """Set the secret in the juju secret storage."""
         secret_id = self.app_peer_data.get("secret-id")
 
-        content = {
-            key: value,
-        }
-
         if secret_id:
             secret = self.model.get_secret(id=secret_id)
-            logger.info(f"Setting secret {secret.id} to {content}")
-            secret.set_content(content)
+            secret_content = secret.get_content()
+
+            if not value:
+                del secret_content[key]
+            else:
+                secret_content[key] = value
+
+            logger.info(f"Setting secret {secret.id} to {secret_content}")
+            secret.set_content(secret_content)
         else:
-            secret = self.app.add_secret(content)
+            content = {
+                key: value,
+            }
+            secret = self.unit.add_secret(content)
             self.app_peer_data["secret-id"] = secret.id
             logger.info(f"Added secret {secret.id} to {content}")
 
