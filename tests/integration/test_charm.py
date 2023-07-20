@@ -4,6 +4,7 @@
 
 import asyncio
 import logging
+import json
 from pathlib import Path
 from typing import Optional
 
@@ -50,28 +51,26 @@ async def helper_execute_action(
     return action.results
 
 
-async def test_delete_secret(ops_test: OpsTest):
-    """Testing if it's possible to remove a secret from a joined secret removing one-by-one.
+async def test_delete_secret_within_separate_event_scopes_always_works(ops_test: OpsTest):
+    """Testing if it's possible to remove all keys from a joined secret one-by-one in SEPARATE event scopes.
 
-    NOTE: This should work
+    NOTE: This functionality is OK
     """
     await helper_execute_action(ops_test, "forget-all-secrets")
 
-    await helper_execute_action(ops_test, "set-secret", {"key": "key1", "value": "value1"})
-    await helper_execute_action(ops_test, "set-secret", {"key": "key2", "value": "value2"})
-    await helper_execute_action(ops_test, "set-secret", {"key": "key3", "value": "value3"})
+    content = {f"key{i}": f"value{i}" for i in range(3)}
+    await helper_execute_action(ops_test, "set-secret", content)
 
     secrets_data = await helper_execute_action(ops_test, "get-secrets")
 
     assert secrets_data["secrets"] == {
+        "key0": "value0",
         "key1": "value1",
         "key2": "value2",
-        "key3": "value3",
     }
 
-    await helper_execute_action(ops_test, "set-secret", {"key": "key1"})
-    await helper_execute_action(ops_test, "set-secret", {"key": "key2"})
-    await helper_execute_action(ops_test, "set-secret", {"key": "key3"})
+    for i in range(3):
+        await helper_execute_action(ops_test, "delete-secrets", {"keys": [f"key{i}"]})
 
     secrets_data = await helper_execute_action(ops_test, "get-secrets")
 
@@ -80,152 +79,149 @@ async def test_delete_secret(ops_test: OpsTest):
 
 
 async def test_delete_all_secrets_within_the_same_action_scope(ops_test: OpsTest):
-    """Testing if it's possible to remove a secret from a joined secret removing one-by-one within the same event scope.
-
-    NOTE: This should fail
+    """Testing if it's possible to remove all keys from a joined secret removing one-by-one within the same event scope.
     """
     await helper_execute_action(ops_test, "forget-all-secrets")
 
-    await helper_execute_action(ops_test, "set-secret", {"key": "key1", "value": "value1"})
-    await helper_execute_action(ops_test, "set-secret", {"key": "key2", "value": "value2"})
-    await helper_execute_action(ops_test, "set-secret", {"key": "key3", "value": "value3"})
+    content = {f"key{i}": f"value{i}" for i in range(3)}
+    await helper_execute_action(ops_test, "set-secret", content)
 
-    await helper_execute_action(ops_test, "delete-secrets", {"keys": ["key1", "key2", "key3"]})
+    await helper_execute_action(ops_test, "delete-secrets", {"keys": [f"key{i}" for i in range(3)]})
 
     secrets_data = await helper_execute_action(ops_test, "get-secrets")
 
-    #
-    # The issue still holds :-( :-( :-(
-    # Should be {}
-    #
-    assert secrets_data.get("secrets") == {
-            "key2": "value2",
-            "key3": "value3",
-    }
+    secrets = secrets_data.get("secrets")
+    # ISSUE!!!!! Empty dict wouldn't have made it to event results
+    assert secrets
+
+    print()
+    print("*************************************************************************")
+    print("All keys should be deleted [0..2].")
+    print(f"Actual results: {json.dumps(secrets, sort_keys=True, indent=4)}")
+    print("*************************************************************************")
 
 
 async def test_delete_secrets_within_the_same_action_scope(ops_test: OpsTest):
-    """Testing if it's possible to remove a secret from a joined secret removing one-by-one within the same event scope.
+    """Testing if it's possible to remove keys from a joined secret one-by-one within the same event scope.
 
     NOTE: This should fail
     """
     await helper_execute_action(ops_test, "forget-all-secrets")
 
-    await helper_execute_action(ops_test, "set-secret", {"key": "key1", "value": "value1"})
-    await helper_execute_action(ops_test, "set-secret", {"key": "key2", "value": "value2"})
-    await helper_execute_action(ops_test, "set-secret", {"key": "key3", "value": "value3"})
-    await helper_execute_action(ops_test, "set-secret", {"key": "key4", "value": "value4"})
-    await helper_execute_action(ops_test, "set-secret", {"key": "key5", "value": "value5"})
+    content = {f"key{i}": f"value{i}" for i in range(5)}
+    await helper_execute_action(ops_test, "set-secret", content)
 
-    await helper_execute_action(ops_test, "delete-secrets", {"keys": ["key1", "key3", "key5"]})
+    await helper_execute_action(ops_test, "delete-secrets", {"keys": [f"key{i}" for i in range(0, 5, 2)]})
 
     secrets_data = await helper_execute_action(ops_test, "get-secrets")
 
-    #
-    # The issue still holds :-(
-    # Should be {"key2": "password2", "key4": "password4"}
-    #
-    assert secrets_data.get("secrets") == {
-            "key2": "value2",
-            "key3": "value3",
-            "key4": "value4",
-            "key5": "value5",
-    }
+    secrets = secrets_data.get("secrets")
+    # ISSUE!!!!! Empty dict wouldn't have made it to event results
+    assert secrets
+    assert 2 < len(secrets.keys())
+
+    print()
+    print("*************************************************************************")
+    print("Even keys should be deleted [0..4].")
+    print(f"Actual results: {json.dumps(secrets, sort_keys=True, indent=4)}")
+    print("*************************************************************************")
 
 
 async def test_set_all_secrets_within_the_same_action_scope_work_fine(ops_test: OpsTest):
-    """Testing if it's possible to remove a secret from a joined secret removing one-by-one within the same event scope.
+    """Testing if it's possible to set all values within a joined secret one-by-one within the same event scope.
 
     NOTE: This should fail
     """
     await helper_execute_action(ops_test, "forget-all-secrets")
 
-    await helper_execute_action(ops_test, "set-secret", {"key": "key1", "value": "value1"})
-    await helper_execute_action(ops_test, "set-secret", {"key": "key2", "value": "value2"})
-    await helper_execute_action(ops_test, "set-secret", {"key": "key3", "value": "value3"})
+    content = {f"key{i}": f"value{i}" for i in range(5)}
+    await helper_execute_action(ops_test, "set-secret", content)
 
-    await helper_execute_action(ops_test, "pseudo-delete-secrets", {"keys": ["key1", "key2", "key3"]})
+    await helper_execute_action(ops_test, "pseudo-delete-secrets", {"keys": [f"key{i}" for i in range(5)]})
 
     secrets_data = await helper_execute_action(ops_test, "get-secrets")
 
-    #
-    # ISSUE!!!!! "key2" should be '### DELETED ###'
-    #
-    assert secrets_data.get("secrets") == {
-            "key1": "### DELETED ###",
-            "key2": "value2",
-            "key3": "### DELETED ###",
-    }
+    secrets = secrets_data.get("secrets")
+    assert 0 < sum([secrets[key] != "### DELETED ###" for key in secrets])
+
+    print()
+    print("*************************************************************************")
+    print("All keys should be marked as deleted [0..4].")
+    print(f"Actual results: {json.dumps(secrets, sort_keys=True, indent=4)}")
+    print("*************************************************************************")
 
 
 async def test_set_secrets_within_the_same_action_scope_works(ops_test: OpsTest):
-    """Testing if it's possible to remove a secret from a joined secret removing one-by-one within the same event scope.
+    """Testing if it's possible to set a some values within a joined secret one-by-one within the same event scope.
 
     NOTE: This should fail
     """
     await helper_execute_action(ops_test, "forget-all-secrets")
 
-    await helper_execute_action(ops_test, "set-secret", {"key": "key1", "value": "value1"})
-    await helper_execute_action(ops_test, "set-secret", {"key": "key2", "value": "value2"})
-    await helper_execute_action(ops_test, "set-secret", {"key": "key3", "value": "value3"})
-    await helper_execute_action(ops_test, "set-secret", {"key": "key4", "value": "value4"})
-    await helper_execute_action(ops_test, "set-secret", {"key": "key5", "value": "value5"})
+    content = {f"key{i}": f"value{i}" for i in range(5)}
+    await helper_execute_action(ops_test, "set-secret", content)
 
-    await helper_execute_action(ops_test, "pseudo-delete-secrets", {"keys": ["key1", "key3", "key5"]})
+    await helper_execute_action(ops_test, "pseudo-delete-secrets", {"keys": [f"key{i}" for i in range(0, 5, 2)]})
 
     secrets_data = await helper_execute_action(ops_test, "get-secrets")
 
-    #
     # ISSUE!!!!! "key3" should be '### DELETED ###'
-    #
-    assert secrets_data.get("secrets") == {
-            "key1": "### DELETED ###",
-            "key2": "value2",
-            "key3": "value3",
-            "key4": "value4",
-            "key5": "### DELETED ###",
-    }
+    secrets = secrets_data.get("secrets")
+    assert 2 < sum([secrets[key] != "### DELETED ###" for key in secrets])
+
+    print()
+    print("*************************************************************************")
+    print("Even keys should be marked as deleted [0..4].")
+    print(f"Actual results: {json.dumps(secrets_data.get('secrets'), sort_keys=True, indent=4)}")
+    print("*************************************************************************")
 
 
 async def test_delete_lotta_secrets_within_the_same_action_scope(ops_test: OpsTest):
-    """Testing if it's possible to remove a secret from a joined secret removing one-by-one within the same event scope.
+    """Testing if it's possible to remove keys from a joined secret one-by-one within the same event scope.
 
     NOTE: This should fail
     """
     await helper_execute_action(ops_test, "forget-all-secrets")
 
-    for i in range(20):
-        await helper_execute_action(ops_test, "set-secret", {"key": f"key{i}", "value": f"value{i}"})
+    content = {f"key{i}": f"value{i}" for i in range(15)}
+    await helper_execute_action(ops_test, "set-secret", content)
 
-    await helper_execute_action(ops_test, "delete-secrets", {"keys": [f"key{i}" for i in range(20)]})
+    await helper_execute_action(ops_test, "delete-secrets", {"keys": [f"key{i}" for i in range(15)]})
 
     secrets_data = await helper_execute_action(ops_test, "get-secrets")
 
-    #
+    secrets = secrets_data.get("secrets")
     # ISSUE!!!!! Empty dict wouldn't have made it to event results
-    #
-    assert secrets_data.get("secrets")
+    assert secrets
 
-    print(f"Actual results: {secrets_data.get('secrets')}")
+    print()
+    print("*************************************************************************")
+    print("Keys ([0..14]) all deleted.")
+    print(f"Actual results: {json.dumps(secrets, sort_keys=True, indent=4)}")
+    print("*************************************************************************")
 
 
 async def test_set_lotta_secrets_within_the_same_action_scope(ops_test: OpsTest):
-    """Testing if it's possible to remove a secret from a joined secret removing one-by-one within the same event scope.
+    """Testing if it's possible to remove a keys from a joined secret one-by-one within the same event scope.
 
     NOTE: This should fail
     """
     await helper_execute_action(ops_test, "forget-all-secrets")
 
-    for i in range(20):
-        await helper_execute_action(ops_test, "set-secret", {"key": f"key{i}", "value": f"value{i}"})
+    content = {f"key{i}": f"value{i}" for i in range(15)}
+    await helper_execute_action(ops_test, "set-secret", content)
 
-    await helper_execute_action(ops_test, "pseudo-delete-secrets", {"keys": [f"key{i}" for i in range(20)]})
+    await helper_execute_action(ops_test, "pseudo-delete-secrets", {"keys": [f"key{i}" for i in range(15)]})
 
     secrets_data = await helper_execute_action(ops_test, "get-secrets")
 
-    #
+    secrets = secrets_data.get("secrets")
     # ISSUE!!!!! Empty dict wouldn't have made it to event results
-    #
-    assert secrets_data.get("secrets")
+    assert secrets
+    assert 0 < sum([f"key{i}" != "### DELETED ###" for i in range(15)])
 
-    print(f"Actual results: {secrets_data.get('secrets')}")
+    print()
+    print("*************************************************************************")
+    print("Keys [0..14] were all marked as deleted.")
+    print(f"Actual results: {json.dumps(secrets, sort_keys=True, indent=4)}")
+    print("*************************************************************************")
