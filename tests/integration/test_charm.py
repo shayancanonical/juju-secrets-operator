@@ -55,6 +55,8 @@ async def test_delete_secret(ops_test: OpsTest):
 
     NOTE: This should work
     """
+    await helper_execute_action(ops_test, "forget-all-secrets")
+
     await helper_execute_action(ops_test, "set-secret", {"key": "key1", "value": "value1"})
     await helper_execute_action(ops_test, "set-secret", {"key": "key2", "value": "value2"})
     await helper_execute_action(ops_test, "set-secret", {"key": "key3", "value": "value3"})
@@ -77,11 +79,13 @@ async def test_delete_secret(ops_test: OpsTest):
     assert "secrets" not in secrets_data
 
 
-async def test_delete_secrets_within_the_same_action_scope(ops_test: OpsTest):
+async def test_delete_all_secrets_within_the_same_action_scope(ops_test: OpsTest):
     """Testing if it's possible to remove a secret from a joined secret removing one-by-one within the same event scope.
 
     NOTE: This should fail
     """
+    await helper_execute_action(ops_test, "forget-all-secrets")
+
     await helper_execute_action(ops_test, "set-secret", {"key": "key1", "value": "value1"})
     await helper_execute_action(ops_test, "set-secret", {"key": "key2", "value": "value2"})
     await helper_execute_action(ops_test, "set-secret", {"key": "key3", "value": "value3"})
@@ -91,6 +95,93 @@ async def test_delete_secrets_within_the_same_action_scope(ops_test: OpsTest):
     secrets_data = await helper_execute_action(ops_test, "get-secrets")
 
     #
-    # ISSUE: This is NOT the intuitively expected behavior
+    # The issue still holds :-( :-( :-(
+    # Should be {}
     #
-    assert secrets_data.get("secrets") == {"key2": "value2", "key3": "value3"}
+    assert secrets_data.get("secrets") == {
+            "key2": "value2",
+            "key3": "value3",
+    }
+
+
+async def test_delete_secrets_within_the_same_action_scope(ops_test: OpsTest):
+    """Testing if it's possible to remove a secret from a joined secret removing one-by-one within the same event scope.
+
+    NOTE: This should fail
+    """
+    await helper_execute_action(ops_test, "forget-all-secrets")
+
+    await helper_execute_action(ops_test, "set-secret", {"key": "key1", "value": "value1"})
+    await helper_execute_action(ops_test, "set-secret", {"key": "key2", "value": "value2"})
+    await helper_execute_action(ops_test, "set-secret", {"key": "key3", "value": "value3"})
+    await helper_execute_action(ops_test, "set-secret", {"key": "key4", "value": "value4"})
+    await helper_execute_action(ops_test, "set-secret", {"key": "key5", "value": "value5"})
+
+    await helper_execute_action(ops_test, "delete-secrets", {"keys": ["key1", "key3", "key5"]})
+
+    secrets_data = await helper_execute_action(ops_test, "get-secrets")
+
+    #
+    # The issue still holds :-(
+    # Should be {"key2": "password2", "key4": "password4"}
+    #
+    assert secrets_data.get("secrets") == {
+            "key2": "value2",
+            "key3": "value3",
+            "key4": "value4",
+            "key5": "value5",
+    }
+
+
+async def test_set_all_secrets_within_the_same_action_scope_work_fine(ops_test: OpsTest):
+    """Testing if it's possible to remove a secret from a joined secret removing one-by-one within the same event scope.
+
+    NOTE: This should fail
+    """
+    await helper_execute_action(ops_test, "forget-all-secrets")
+
+    await helper_execute_action(ops_test, "set-secret", {"key": "key1", "value": "value1"})
+    await helper_execute_action(ops_test, "set-secret", {"key": "key2", "value": "value2"})
+    await helper_execute_action(ops_test, "set-secret", {"key": "key3", "value": "value3"})
+
+    await helper_execute_action(ops_test, "pseudo-delete-secrets", {"keys": ["key1", "key2", "key3"]})
+
+    secrets_data = await helper_execute_action(ops_test, "get-secrets")
+
+    #
+    # ISSUE!!!!! "key2" should be '### DELETED ###'
+    #
+    assert secrets_data.get("secrets") == {
+            "key1": "### DELETED ###",
+            "key2": "value2",
+            "key3": "### DELETED ###",
+    }
+
+
+async def test_set_secrets_within_the_same_action_scope_works(ops_test: OpsTest):
+    """Testing if it's possible to remove a secret from a joined secret removing one-by-one within the same event scope.
+
+    NOTE: This should fail
+    """
+    await helper_execute_action(ops_test, "forget-all-secrets")
+
+    await helper_execute_action(ops_test, "set-secret", {"key": "key1", "value": "value1"})
+    await helper_execute_action(ops_test, "set-secret", {"key": "key2", "value": "value2"})
+    await helper_execute_action(ops_test, "set-secret", {"key": "key3", "value": "value3"})
+    await helper_execute_action(ops_test, "set-secret", {"key": "key4", "value": "value4"})
+    await helper_execute_action(ops_test, "set-secret", {"key": "key5", "value": "value5"})
+
+    await helper_execute_action(ops_test, "pseudo-delete-secrets", {"keys": ["key1", "key3", "key5"]})
+
+    secrets_data = await helper_execute_action(ops_test, "get-secrets")
+
+    #
+    # ISSUE!!!!! "key3" should be '### DELETED ###'
+    #
+    assert secrets_data.get("secrets") == {
+            "key1": "### DELETED ###",
+            "key2": "value2",
+            "key3": "value3",
+            "key4": "value4",
+            "key5": "### DELETED ###",
+    }

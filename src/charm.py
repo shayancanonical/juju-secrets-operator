@@ -36,6 +36,8 @@ class SecretsTestCharm(ops.CharmBase):
         self.framework.observe(self.on.set_secret_action, self._on_set_secret_action)
         self.framework.observe(self.on.get_secrets_action, self._on_get_secrets_action)
         self.framework.observe(self.on.delete_secrets_action, self._on_delete_secrets_action)
+        self.framework.observe(self.on.pseudo_delete_secrets_action, self._on_pseudo_delete_secrets_action)
+        self.framework.observe(self.on.forget_all_secrets_action, self._on_forget_all_secrets_action)
 
     def _on_start(self, event) -> None:
         self.unit.status = ActiveStatus()
@@ -52,6 +54,15 @@ class SecretsTestCharm(ops.CharmBase):
         keys = event.params.get("keys")
         for key in keys:
             self.delete_secret(key)
+
+    def _on_pseudo_delete_secrets_action(self, event: ActionEvent):
+        keys = event.params.get("keys")
+        for key in keys:
+            self.set_secret(key, "### DELETED ###")
+
+    def _on_forget_all_secrets_action(self, event: ActionEvent):
+        if self.app_peer_data.get("secret-id"):
+            del self.app_peer_data["secret-id"]
 
     @property
     def peers(self) -> ops.model.Relation:
