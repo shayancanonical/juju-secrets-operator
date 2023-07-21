@@ -3,12 +3,9 @@ forget-all-secrets:
 
 set-secret:
   description: Test action to set a secret key/value pair.
-  key:
-    type: string
-    description: The key for the secret
-  value:
-    type: string
-    description: The value for the secret
+  content:
+    type: dict
+    description: The content for the secret
 
 get-secrets:
   description: Retrieve all the secrets stored in juju storage.

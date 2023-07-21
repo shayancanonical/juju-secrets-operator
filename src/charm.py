@@ -43,8 +43,8 @@ class SecretsTestCharm(ops.CharmBase):
         self.unit.status = ActiveStatus()
 
     def _on_set_secret_action(self, event: ActionEvent):
-        key, value = event.params.get("key"), event.params.get("value")
-        event.set_results({"secret-id": self.set_secret(key, value)})
+        content = event.params
+        event.set_results({"secret-id": self.set_secret(content)})
 
     def _on_get_secrets_action(self, event: ActionEvent):
         """Return the secrets stored in juju secrets backend."""
@@ -58,7 +58,7 @@ class SecretsTestCharm(ops.CharmBase):
     def _on_pseudo_delete_secrets_action(self, event: ActionEvent):
         keys = event.params.get("keys")
         for key in keys:
-            self.set_secret(key, "### DELETED ###")
+            self.set_secret({key: "### DELETED ###"})
 
     def _on_forget_all_secrets_action(self, event: ActionEvent):
         if self.app_peer_data.get("secret-id"):
@@ -92,26 +92,20 @@ class SecretsTestCharm(ops.CharmBase):
         logger.info(f"Retrieved secret {secret_id} with content {content}")
         return content
 
-    def set_secret(self, key: str, value: str) -> None:
+    def set_secret(self, new_content: dict) -> None:
         """Set the secret in the juju secret storage."""
-        if not value:
-            return self.delete_secret(key)
-
         secret_id = self.app_peer_data.get("secret-id")
 
         if secret_id:
             secret = self.model.get_secret(id=secret_id)
             content = secret.get_content()
-            content.update({key: value})
+            content.update(new_content)
             logger.info(f"Setting secret {secret.id} to {content}")
             secret.set_content(content)
         else:
-            content = {
-                key: value,
-            }
-            secret = self.app.add_secret(content)
+            secret = self.app.add_secret(new_content)
             self.app_peer_data["secret-id"] = secret.id
-            logger.info(f"Added secret {secret.id} to {content}")
+            logger.info(f"Added secret {secret.id} to {new_content}")
 
         return secret.id
 
