@@ -63,6 +63,7 @@ class SecretsTestCharm(ops.CharmBase):
     def _on_forget_all_secrets_action(self, event: ActionEvent):
         if self.app_peer_data.get("secret-id"):
             del self.app_peer_data["secret-id"]
+            self.secret_meta = None
 
     @property
     def peers(self) -> ops.model.Relation:

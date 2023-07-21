@@ -218,7 +218,7 @@ async def test_set_lotta_secrets_within_the_same_action_scope(ops_test: OpsTest)
     secrets = secrets_data.get("secrets")
     # ISSUE!!!!! Empty dict wouldn't have made it to event results
     assert secrets
-    assert 0 < sum([f"key{i}" != "### DELETED ###" for i in range(15)])
+    assert 0 < sum([secrets[key] != "### DELETED ###" for key in secrets])
 
     print()
     print("*************************************************************************")
