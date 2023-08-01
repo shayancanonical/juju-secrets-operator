@@ -16,6 +16,7 @@ import logging
 
 import ops
 from ops.charm import ActionEvent
+from ops.model import ActiveStatus
 
 # Log messages can be retrieved using juju debug-log
 logger = logging.getLogger(__name__)
@@ -30,9 +31,18 @@ class SecretsTestCharm(ops.CharmBase):
     def __init__(self, *args):
         super().__init__(*args)
 
+        self.framework.observe(self.on.start, self._on_start)
+        self.framework.observe(
+            self.on.database_storage_detaching, self._on_database_storage_detaching
+        )
+
         self.framework.observe(self.on.set_secret_action, self._on_set_secret_action)
         self.framework.observe(self.on.set_secrets_action, self._on_set_secrets_action)
         self.framework.observe(self.on.get_secrets_action, self._on_get_secrets_action)
+
+    def _on_start(self, _) -> None:
+        """Handle the start event."""
+        self.unit.status = ActiveStatus()
 
     def _on_set_secret_action(self, event: ActionEvent):
         k, v = event.params.get("key"), event.params.get("value")
@@ -62,7 +72,7 @@ class SecretsTestCharm(ops.CharmBase):
     def get_secrets(self) -> dict[str, str]:
         """Get the secrets stored in juju secrets backend."""
         secret_id = self.app_peer_data.get("secret-id")
-            
+
         if not secret_id:
             return {}
 
@@ -93,6 +103,12 @@ class SecretsTestCharm(ops.CharmBase):
             secret = self.unit.add_secret(content)
             self.app_peer_data["secret-id"] = secret.id
             logger.info(f"Added secret {secret.id} to {content}")
+
+    def _on_database_storage_detaching(self, _) -> None:
+        """Access a secret upon storage detaching."""
+        logger.info("Starting storage detaching event")
+        secrets = self.get_secrets()
+        logger.info(f"{secrets=}")
 
 
 if __name__ == "__main__":  # pragma: nocover

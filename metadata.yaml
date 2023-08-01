@@ -11,5 +11,14 @@ summary: Test to demonstrate some behavior with juju secrets.
 description: Test charm to demonstrate some juju secrets related behavior.
 
 peers:
-    charm-peer:
-        interface: charm-peer
+  charm-peer:
+    interface: charm-peer
+
+storage:
+  database:
+    type: filesystem
+    description: Test filesystem storage
+    location: /test
+
+assumes:
+  - juju
